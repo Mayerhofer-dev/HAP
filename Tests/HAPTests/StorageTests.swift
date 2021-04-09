@@ -5,7 +5,7 @@ import XCTest
 
 class StorageTests: XCTestCase {
     static var allTests: [(String, (StorageTests) -> () throws -> Void)] {
-        return [
+        [
             ("testFileStorage", testFileStorage)
         ]
     }
@@ -16,5 +16,6 @@ class StorageTests: XCTestCase {
         try! storage.write(expected)
         let actual = try! storage.read()
         XCTAssertEqual(expected, actual)
+        try? FileManager.default.removeItem(atPath: "test.tmp")
     }
 }

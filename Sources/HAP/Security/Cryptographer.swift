@@ -1,13 +1,9 @@
-import Logging
 import Foundation
 import HKDF
+import Logging
 import NIO
 
-fileprivate let logger: Logger = {
-    var _logger = Logger(label: "hap.encryption")
-    _logger.logLevel = .warning
-    return _logger
-}()
+fileprivate let logger = Logger(label: "hap.encryption")
 
 // 5.5.2 Session Security
 // (...)
@@ -44,7 +40,7 @@ class Cryptographer {
     }
 
     func decrypt(length: Int, cipher: inout ByteBuffer, message: inout ByteBuffer) throws {
-        logger.info("Decrypt message #\(self.decryptCount), length: \(length)")
+        logger.debug("Decrypt message #\(self.decryptCount), length: \(length)")
         defer { decryptCount += 1 }
         var lengthBytes = cipher.readSlice(length: 2)!
         let nonce = decryptCount.bigEndian.bytes
@@ -52,7 +48,7 @@ class Cryptographer {
     }
 
     func encrypt(length: Int, plaintext: inout ByteBuffer, cipher: inout ByteBuffer) throws {
-        logger.info("Encrypt message #\(self.encryptCount), length: \(length)")
+        logger.debug("Encrypt message #\(self.encryptCount), length: \(length)")
         defer { encryptCount += 1 }
         cipher.writeInteger(Int16(length), endianness: Endianness.little, as: Int16.self)
         let additional = cipher.viewBytes(at: 0, length: 2)!

@@ -1,9 +1,9 @@
-// swiftlint:disable force_cast
+// swiftlint:disable force_cast inclusive_language
 import Foundation
 
 extension String {
     func lowercasedFirstLetter() -> String {
-        return prefix(1).lowercased() + dropFirst()
+        prefix(1).lowercased() + dropFirst()
     }
 
     mutating func lowercasedFirstLetter() {
@@ -20,7 +20,7 @@ extension String {
 
     // Make string into a legal swift instance variable name
     func parameterName() -> String {
-        return self
+        self
             .replacingOccurrences(of: "_", with: " ")
             .replacingOccurrences(of: "-", with: " ")
             .capitalized
@@ -223,7 +223,7 @@ public class Inspector {
     class func inspect(source plistPath: URL, target outputPath: String) throws {
         // Convert HAP unit names to swift instance variable name
         func unitName(_ name: String) -> String {
-            return name.lowercased()
+            name.lowercased()
                 .replacingOccurrences(of: "/", with: " per ")
                 .replacingOccurrences(of: "^3", with: " cubed ")
                 .parameterName()
@@ -264,13 +264,13 @@ public class Inspector {
         // Convert HAP permission flags into comma seperated swift permission enum values
         func permissions(_ permissions: Int) -> String {
             var list = [String]()
-            if permissions & 2 != 0 {
+            if (permissions & 2) == 2 {
                 list.append(".read")
             }
-            if permissions & 4 != 0 {
+            if (permissions & 4) == 4 {
                 list.append(".write")
             }
-            if permissions & 1 != 0 {
+            if (permissions & 1) == 1 {
                 list.append(".events")
             }
             return list.joined(separator: ", ")
@@ -364,9 +364,23 @@ public class Inspector {
         public enum AccessoryType: String, Codable {
         """)
         for category in categoryInfo.sorted(by: { $0.id < $1.id }) {
-            write("\tcase \(categoryName(category.name)) = \"\(category.id)\"")
+            write("    case \(categoryName(category.name)) = \"\(category.id)\"")
         }
-        write("}")
+        write("""
+        }
+
+        extension AccessoryType: CustomStringConvertible {
+            public var description: String {
+                switch self {
+        """)
+        for category in categoryInfo.sorted(by: { $0.id < $1.id }) {
+            write("        case .\(categoryName(category.name)): return \"\(category.name)\"")
+        }
+        write("""
+                }
+            }
+        }
+        """)
 
         struct ServiceInfo {
             let name: String
@@ -391,12 +405,12 @@ public class Inspector {
                     let required = serviceCharacteristics["Required"] ?? []
                     let optional = serviceCharacteristics["Optional"] ?? []
                     serviceInfo.append(ServiceInfo(name: name,
-                                                    title: title,
-                                                    paramName: serviceName(title, uuid: id),
-                                                    className: serviceName(title, uuid: id).uppercasedFirstLetter(),
-                                                    id: id,
-                                                    required: required,
-                                                    optional: optional
+                                                   title: title,
+                                                   paramName: serviceName(title, uuid: id),
+                                                   className: serviceName(title, uuid: id).uppercasedFirstLetter(),
+                                                   id: id,
+                                                   required: required,
+                                                   optional: optional
                     ))
 
                     whitelistedCharacteristics = whitelistedCharacteristics.union(required)
@@ -413,9 +427,31 @@ public class Inspector {
         public extension ServiceType {
         """)
         for service in serviceInfo.sorted(by: { $0.className < $1.className }) {
-            write("\tstatic let \(serviceName(service.title, uuid: service.id)) = ServiceType(0x\(service.id.suffix(4)))")
+            write("    static let \(serviceName(service.title, uuid: service.id)) = ServiceType(0x\(service.id.suffix(4)))")
         }
-        write("}")
+        write("""
+        }
+
+        extension ServiceType: CustomStringConvertible {
+            public var description: String {
+                switch self {
+        """)
+        for service in serviceInfo.sorted(by: { $0.className < $1.className }) {
+            if let id = Int(service.id, radix: 16) {
+                let idhex = String(id, radix: 16, uppercase: true)
+                write("        case .\(serviceName(service.title, uuid: service.id)): return \"\(service.title)\"")
+            }
+        }
+        write("""
+                case let .appleDefined(typeCode):
+                    let hex = String(typeCode, radix: 16).uppercased()
+                    return "Apple Defined (\\(hex))"
+                case let .custom(uuid):
+                    return "\\(uuid)"
+                }
+            }
+        }
+        """)
 
         // Characteristic types
 
@@ -443,7 +479,7 @@ public class Inspector {
                 return list
             }
             var isReadable: Bool {
-                return permissions.contains(.read)
+                permissions.contains(.read)
             }
         }
 
@@ -459,14 +495,14 @@ public class Inspector {
 
                     characteristicInfo.append(
                         CharacteristicInfo(hkname: name,
-                                            title: title,
-                                            id: id,
-                                            format: format,
-                                            maxValue: dict["MaxValue"] as? NSNumber,
-                                            minValue: dict["MinValue"] as? NSNumber,
-                                            properties: dict["Properties"] as? Int ?? Int(dict["Properties"].debugDescription as! String)!,
-                                            stepValue: dict["StepValue"] as? NSNumber,
-                                            units: dict["Units"] as? String))
+                                           title: title,
+                                           id: id,
+                                           format: format,
+                                           maxValue: dict["MaxValue"] as? NSNumber,
+                                           minValue: dict["MinValue"] as? NSNumber,
+                                           properties: dict["Properties"] as? Int ?? Int(dict["Properties"].debugDescription as! String)!,
+                                           stepValue: dict["StepValue"] as? NSNumber,
+                                           units: dict["Units"] as? String))
                     characteristicFormats.insert(format)
 
                 }
@@ -479,9 +515,31 @@ public class Inspector {
         """)
 
         for characteristic in characteristicInfo.sorted(by: { $0.title < $1.title }) {
-            write("\tstatic let \(serviceName(characteristic.title, uuid: characteristic.id)) = CharacteristicType(0x\(characteristic.id.suffix(4)))")
+            write("    static let \(serviceName(characteristic.title, uuid: characteristic.id)) = CharacteristicType(0x\(characteristic.id.suffix(4)))")
         }
-        write("}")
+        write("""
+        }
+
+        extension CharacteristicType: CustomStringConvertible {
+            public var description: String {
+                switch self {
+        """)
+        for characteristic in characteristicInfo.sorted(by: { $0.title < $1.title }) {
+            if let id = Int(characteristic.id, radix: 16) {
+                let idhex = String(id, radix: 16, uppercase: true)
+                write("        case .\(serviceName(characteristic.title, uuid: characteristic.id)): return \"\(characteristic.title)\"")
+            }
+        }
+        write("""
+                case let .appleDefined(typeCode):
+                    let hex = String(typeCode, radix: 16).uppercased()
+                    return "Apple Defined (\\(hex))"
+                case let .custom(uuid):
+                    return "\\(uuid)"
+                }
+            }
+        }
+        """)
 
         // Characteristic Formats
 
@@ -492,7 +550,7 @@ public class Inspector {
         public enum CharacteristicFormat: String, Codable {
         """)
         for format in characteristicFormats.sorted(by: { $0 < $1 }) {
-            write("\tcase \(format.lowercased())")
+            write("    case \(format.lowercased())")
         }
         write("}")
 
@@ -510,7 +568,7 @@ public class Inspector {
         public enum CharacteristicUnit: String, Codable {
         """)
         for unit in unitInfo.sorted(by: { $0 < $1 }) {
-            write("\tcase \(unit)")
+            write("    case \(unit)")
         }
         write("}\n")
 
@@ -547,17 +605,17 @@ public class Inspector {
         }
 
         func writeEnumeration(enumName: String, type: String, values: NSDictionary, max: NSNumber?) {
-            write("\tpublic enum \(enumName): \(type), CharacteristicValueType {")
+            write("    public enum \(enumName): \(type), CharacteristicValueType {")
             writeEnumerationCases(values, max: max)
-            write("\t}\n")
+            write("    }\n")
         }
 
         func writeEnumerationCases(_ unsortedCases: NSDictionary, max: NSNumber?) {
             let cases = unsortedCases.sorted(by: {
-                if let v0 = $0.value as? NSNumber {
-                    return v0.intValue < ($1.value as! NSNumber).intValue
-                } else if let v0 = $0.value as? String {
-                    return v0 < ($1.value as! String)
+                if let number = $0.value as? NSNumber {
+                    return number.intValue < ($1.value as! NSNumber).intValue
+                } else if let string = $0.value as? String {
+                    return string < ($1.value as! String)
                 }
                 return false
             }).filter({
@@ -565,10 +623,10 @@ public class Inspector {
                     return true
                 }
                 let val: NSNumber
-                if let v0 = $0.value as? NSNumber {
-                    val = v0
-                } else if let v0 = $0.value as? String,
-                    let num = NumberFormatter().number(from: v0) {
+                if let number = $0.value as? NSNumber {
+                    val = number
+                } else if let string = $0.value as? String,
+                    let num = NumberFormatter().number(from: string) {
                     val = num
                 } else {
                     return true
@@ -577,7 +635,7 @@ public class Inspector {
             })
             for enumCase in cases {
                 if let name = (enumCase.key as? String) {
-                    write("\t\tcase \(name.parameterName()) = \(enumCase.value)")
+                    write("        case \(name.parameterName()) = \(enumCase.value)")
                 }
             }
 
@@ -668,7 +726,7 @@ public class Inspector {
 
         func writeCharacteristicProperty(info: CharacteristicInfo, isOptional: Bool) {
             let name = info.title.parameterName()
-            write("\t\tpublic let \(name): GenericCharacteristic<\(valueType(info))>\(isOptional ? "?" : "")")
+            write("        public let \(name): GenericCharacteristic<\(valueType(info))>\(isOptional ? "?" : "")")
         }
 
         func valueType(_ characteristic: CharacteristicInfo) -> String {
@@ -684,63 +742,63 @@ public class Inspector {
         extension Service {
         """)
         for service in serviceInfo.sorted(by: { $0.className < $1.className }) {
-            write("\topen class \(service.className)Base: Service {")
+            write("    open class \(service.className)Base: Service {")
 
             var requiredCharacteristicPropertyNames = [String]()
 
-            write("\t\t// Required Characteristics")
-            for ch in service.required {
-                if let info = characteristicInfo.first(where: { $0.hkname == ch }) {
+            write("        // Required Characteristics")
+            for characteristic in service.required {
+                if let info = characteristicInfo.first(where: { $0.hkname == characteristic }) {
                     writeCharacteristicProperty(info: info, isOptional: false)
                     requiredCharacteristicPropertyNames.append(info.title.parameterName())
                 }
             }
-            write("\n\t\t// Optional Characteristics")
-            for ch in service.optional {
-                if let info = characteristicInfo.first(where: { $0.hkname == ch }) {
+            write("\n        // Optional Characteristics")
+            for characteristic in service.optional {
+                if let info = characteristicInfo.first(where: { $0.hkname == characteristic }) {
                     writeCharacteristicProperty(info: info, isOptional: true)
                 }
             }
 
             write("""
 
-                \t\tpublic init(characteristics: [AnyCharacteristic] = []) {
-                \t\t\tvar unwrapped = characteristics.map { $0.wrapped }
+                        public init(characteristics: [AnyCharacteristic] = []) {
+                            var unwrapped = characteristics.map { $0.wrapped }
                 """)
 
-            for ch in service.required {
-                if let info = characteristicInfo.first(where: { $0.hkname == ch }) {
+            for characteristic in service.required {
+                if let info = characteristicInfo.first(where: { $0.hkname == characteristic }) {
                     let name = info.title.parameterName()
                     let characteristiceType = ".\(serviceName(info.title, uuid: info.id))"
                     write("""
-                        \t\t\t\(name) = getOrCreateAppend(
-                        \t\t\t\ttype: \(characteristiceType),
-                        \t\t\t\tcharacteristics: &unwrapped,
-                        \t\t\t\tgenerator: { PredefinedCharacteristic.\(serviceName(info.title, uuid: info.id))() })
+                                    \(name) = getOrCreateAppend(
+                                        type: \(characteristiceType),
+                                        characteristics: &unwrapped,
+                                        generator: { PredefinedCharacteristic.\(serviceName(info.title, uuid: info.id))() })
                         """)
                 }
             }
 
-            for ch in service.optional {
-                if let info = characteristicInfo.first(where: { $0.hkname == ch }) {
+            for characteristic in service.optional {
+                if let info = characteristicInfo.first(where: { $0.hkname == characteristic }) {
                     let name = info.title.parameterName()
                     let characteristiceType = ".\(serviceName(info.title, uuid: info.id))"
                     write("""
-                        \t\t\t\(name) = get(type: \(characteristiceType), characteristics: unwrapped)
+                                    \(name) = get(type: \(characteristiceType), characteristics: unwrapped)
                         """)
                 }
             }
 
             write("""
-                \t\t\tsuper.init(type: .\(serviceName(service.title, uuid: service.id)), characteristics: unwrapped)
-                \t\t}
-                \t}\n
+                            super.init(type: .\(serviceName(service.title, uuid: service.id)), characteristics: unwrapped)
+                        }
+                    }\n
                 """)
         }
 
         func defaultValue(_ characteristic: CharacteristicInfo) -> String {
             if characteristic.isReadable {
-                if (enumeratedCharacteristics.contains(characteristic.hkname)) {
+                if enumeratedCharacteristics.contains(characteristic.hkname) {
                     guard let defaultCase = defaultEnumCase[characteristic.hkname] else {
                         preconditionFailure("No default enum case for enum \(characteristic.hkname)")
                     }
@@ -750,7 +808,7 @@ public class Inspector {
                     case "Bool": return "false"
                     case "Data": return "Data()"
                     case "String": return "\"\""
-                    case "Float", "Int", "UInt8", "UInt32": return characteristic.minValue?.stringValue ?? "0"
+                    case "Float", "Int", "UInt8", "UInt16", "UInt32": return characteristic.minValue?.stringValue ?? "0"
                     default: preconditionFailure("No default value for value type \(valueType(characteristic))")
                     }
                 }
@@ -760,15 +818,18 @@ public class Inspector {
         }
 
         func writeFactoryArgumentsWithDefaults(_ characteristic: CharacteristicInfo) {
-            write("\t\t_ value: \(valueType(characteristic)) = \(defaultValue(characteristic)),")
-            write("\t\tpermissions: [CharacteristicPermission] = \(characteristic.permissions.arrayLiteral),")
-            write("\t\tdescription: String? = \"\(characteristic.title)\",")
-            write("\t\tformat: CharacteristicFormat? = .\(characteristic.format),")
-            write("\t\tunit: CharacteristicUnit? = \(characteristic.units != nil ? ".\(unitName(characteristic.units!))" : "nil"),")
-            write("\t\tmaxLength: Int? = nil,")
-            write("\t\tmaxValue: Double? = \(characteristic.maxValue?.stringValue ?? "nil"),")
-            write("\t\tminValue: Double? = \(characteristic.minValue?.stringValue ?? "nil"),")
-            write("\t\tminStep: Double? = \(characteristic.stepValue?.stringValue ?? "nil")")
+            write("        _ value: \(valueType(characteristic)) = \(defaultValue(characteristic)),")
+            write("        permissions: [CharacteristicPermission] = \(characteristic.permissions.arrayLiteral),")
+            write("        description: String? = \"\(characteristic.title)\",")
+            write("        format: CharacteristicFormat? = .\(characteristic.format),")
+            write("        unit: CharacteristicUnit? = \(characteristic.units != nil ? ".\(unitName(characteristic.units!))" : "nil"),")
+            write("        maxLength: Int? = nil,")
+            write("        maxValue: Double? = \(characteristic.maxValue?.stringValue ?? "nil"),")
+            write("        minValue: Double? = \(characteristic.minValue?.stringValue ?? "nil"),")
+            write("        minStep: Double? = \(characteristic.stepValue?.stringValue ?? "nil"),")
+            write("        validValues: [Double] = [],")
+            write("        validValuesRange: Range<Double>? = nil")
+
         }
 
         write("""
@@ -778,21 +839,23 @@ public class Inspector {
         """)
 
         for characteristic in characteristicInfo.sorted(by: { $0.title < $1.title }) {
-            write("\tstatic func \(serviceName(characteristic.title, uuid: characteristic.id))(")
+            write("    static func \(serviceName(characteristic.title, uuid: characteristic.id))(")
             writeFactoryArgumentsWithDefaults(characteristic)
-            write("\t) -> AnyCharacteristic {")
-            write("\t\treturn AnyCharacteristic(")
-            write("\t\t\tPredefinedCharacteristic.\(serviceName(characteristic.title, uuid: characteristic.id))(")
-            write("\t\t\tvalue,")
-            write("\t\t\tpermissions: permissions,")
-            write("\t\t\tdescription: description,")
-            write("\t\t\tformat: format,")
-            write("\t\t\tunit: unit,")
-            write("\t\t\tmaxLength: maxLength,")
-            write("\t\t\tmaxValue: maxValue,")
-            write("\t\t\tminValue: minValue,")
-            write("\t\t\tminStep: minStep) as Characteristic)")
-            write("\t}\n")
+            write("    ) -> AnyCharacteristic {")
+            write("        return AnyCharacteristic(")
+            write("            PredefinedCharacteristic.\(serviceName(characteristic.title, uuid: characteristic.id))(")
+            write("            value,")
+            write("            permissions: permissions,")
+            write("            description: description,")
+            write("            format: format,")
+            write("            unit: unit,")
+            write("            maxLength: maxLength,")
+            write("            maxValue: maxValue,")
+            write("            minValue: minValue,")
+            write("            minStep: minStep,")
+            write("            validValues: validValues,")
+            write("            validValuesRange: validValuesRange) as Characteristic)")
+            write("    }\n")
         }
 
         write("""
@@ -802,21 +865,23 @@ public class Inspector {
         """)
 
         for characteristic in characteristicInfo.sorted(by: { $0.title < $1.title }) {
-            write("\tstatic func \(serviceName(characteristic.title, uuid: characteristic.id))(")
+            write("    static func \(serviceName(characteristic.title, uuid: characteristic.id))(")
             writeFactoryArgumentsWithDefaults(characteristic)
-            write("\t) -> GenericCharacteristic<\(valueType(characteristic))> {")
-            write("\t\treturn GenericCharacteristic<\(valueType(characteristic))>(")
-            write("\t\t\ttype: .\(serviceName(characteristic.title, uuid: characteristic.id)),")
-            write("\t\t\tvalue: value,")
-            write("\t\t\tpermissions: permissions,")
-            write("\t\t\tdescription: description,")
-            write("\t\t\tformat: format,")
-            write("\t\t\tunit: unit,")
-            write("\t\t\tmaxLength: maxLength,")
-            write("\t\t\tmaxValue: maxValue,")
-            write("\t\t\tminValue: minValue,")
-            write("\t\t\tminStep: minStep)")
-            write("\t}\n")
+            write("    ) -> GenericCharacteristic<\(valueType(characteristic))> {")
+            write("        return GenericCharacteristic<\(valueType(characteristic))>(")
+            write("            type: .\(serviceName(characteristic.title, uuid: characteristic.id)),")
+            write("            value: value,")
+            write("            permissions: permissions,")
+            write("            description: description,")
+            write("            format: format,")
+            write("            unit: unit,")
+            write("            maxLength: maxLength,")
+            write("            maxValue: maxValue,")
+            write("            minValue: minValue,")
+            write("            minStep: minStep,")
+            write("            validValues: validValues,")
+            write("            validValuesRange: validValuesRange)")
+            write("    }\n")
         }
 
         write("""
@@ -825,13 +890,13 @@ public class Inspector {
 }
 
 enum CharacteristicInfoPermission: String {
-    case read = "read"
-    case write = "write"
-    case events = "events"
+    case read
+    case write
+    case events
 }
 
 extension Array where Element == CharacteristicInfoPermission {
     var arrayLiteral: String {
-        return "[" + self.map { ".\($0)" }.joined(separator: ", ") + "]"
+        "[" + self.map { ".\($0)" }.joined(separator: ", ") + "]"
     }
 }

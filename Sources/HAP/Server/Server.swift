@@ -1,6 +1,6 @@
 import Foundation
-import Logging
 import HTTP
+import Logging
 import NIO
 import NIOHTTP1
 
@@ -23,9 +23,17 @@ public class Server: NSObject, NetServiceDelegate {
 
     let group: EventLoopGroup
     let bootstrap: ServerBootstrap
+    let ownGroup: Bool
 
     let channel: Channel
 
+    /// Boot a new Server for the given Device and start advertising.
+    /// - Parameters:
+    ///   - device: the device to advertise
+    ///   - listenPort: (optional) the port to listen on, if 0 a random port will be chosen (default: 0)
+    ///   - worker: (optional) by default a new `MultiThreadedEventLoopGroup` loop is created
+    ///     having the same `numberOfThreads` as the `System.coreCount`, provide your own
+    ///     `EventLoopGroup` for more control
     public init(
         device: Device,
         listenPort requestedPort: Int = 0,
@@ -38,13 +46,10 @@ public class Server: NSObject, NetServiceDelegate {
         device.controllerHandler!.removeSubscriptions = device.removeSubscriberForAllCharacteristics
 
         let applicationHandler = ApplicationHandler(responder: root(device: device))
-        
-        if let worker = worker {
-            self.group = worker
-        } else {
-            self.group = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
-        }
-        
+
+        self.ownGroup = worker == nil
+        self.group = worker ?? MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
+
         bootstrap = ServerBootstrap(group: group)
             // Specify backlog and enable SO_REUSEADDR for the server itself
             .serverChannelOption(ChannelOptions.backlog, value: 256)
@@ -100,16 +105,20 @@ public class Server: NSObject, NetServiceDelegate {
         service.publish(options: NetService.Options(rawValue: 0))
     }
 
+    /// Stop advertising
     public func stop() throws {
+        service.stop()
         channel.close(promise: nil)
-        do {
-            try group.syncShutdownGracefully()
-        } catch {
-            throw ServerError.couldNotStop(error)
+        if ownGroup {
+            do {
+                try group.syncShutdownGracefully()
+            } catch {
+                throw ServerError.couldNotStop(error)
+            }
         }
     }
 
-    /// Publish the Accessory configuration on the Bonjour service
+    /// Update the Accessory configuration on the Bonjour service
     func updateDiscoveryRecord() {
         let record = device.config.dictionary(key: { $0.key }, value: { $0.value.data(using: .utf8)! })
         service.setTXTRecord(NetService.data(fromTXTRecord: record))

@@ -1,8 +1,6 @@
 import Foundation
-import Logging
 import HAP
-
-fileprivate let logger = Logger(label: "bridge")
+import Logging
 
 #if os(macOS)
     import Darwin
@@ -10,6 +8,9 @@ fileprivate let logger = Logger(label: "bridge")
     import Dispatch
     import Glibc
 #endif
+
+fileprivate let logger = Logger(label: "bridge")
+LoggingSystem.bootstrap(createLogHandler)
 
 #if DEBUG
     logger.warning("⚠️  It looks like you're running a debug build, which doesn't perform well. Specify `-c release` for good performance.")
@@ -24,13 +25,22 @@ if CommandLine.arguments.contains("--recreate") {
 let livingRoomLightbulb = Accessory.Lightbulb(info: Service.Info(name: "Living Room", serialNumber: "00002"))
 let bedroomNightStand = Accessory.Lightbulb(info: Service.Info(name: "Bedroom", serialNumber: "00003"))
 
+// Security system with multiple zones and statuses fault and tampered.
+let securitySystem = Accessory(info: .init(name: "Multi-Zone", serialNumber: "A1803"),
+                               type: .securitySystem,
+                               services: [
+                                Service.SecuritySystemBase(characteristics: [.name("Zone A"), .statusFault(), .statusTampered()]),
+                                Service.SecuritySystemBase(characteristics: [.name("Zone B"), .statusFault(), .statusTampered()])
+                               ])
+
 let device = Device(
     bridgeInfo: Service.Info(name: "Bridge", serialNumber: "00001"),
     setupCode: "123-44-321",
     storage: storage,
     accessories: [
         livingRoomLightbulb,
-        bedroomNightStand
+        bedroomNightStand,
+        securitySystem
 //        Accessory.Door(info: Service.Info(name: "Front Door", serialNumber: "00005")),
 //        Accessory.Switch(info: Service.Info(name: "Garden Lights", serialNumber: "00006")),
 //        Accessory.Thermostat(info: Service.Info(name: "Living Room Thermostat", serialNumber: "00007")),
@@ -53,27 +63,27 @@ class MyDeviceDelegate: DeviceDelegate {
                            ofService service: Service,
                            ofAccessory accessory: Accessory,
                            didChangeValue newValue: T?) {
-        logger.info("Characteristic \(characteristic) in service \(service.type) of accessory \(accessory.info.name.value ?? "") did change: \(String(describing: newValue))")
+        logger.debug("Characteristic \(characteristic) in service \(service.type) of accessory \(accessory.info.name.value ?? "") did change: \(String(describing: newValue))")
     }
 
     func characteristicListenerDidSubscribe(_ accessory: Accessory,
                                             service: Service,
                                             characteristic: AnyCharacteristic) {
-        logger.info("Characteristic \(characteristic) in service \(service.type) of accessory \(accessory.info.name.value ?? "") got a subscriber")
+        logger.debug("Characteristic \(characteristic) in service \(service.type) of accessory \(accessory.info.name.value ?? "") got a subscriber")
     }
 
     func characteristicListenerDidUnsubscribe(_ accessory: Accessory,
                                               service: Service,
                                               characteristic: AnyCharacteristic) {
-        logger.info("Characteristic \(characteristic) in service \(service.type) of accessory \(accessory.info.name.value ?? "") lost a subscriber")
+        logger.debug("Characteristic \(characteristic) in service \(service.type) of accessory \(accessory.info.name.value ?? "") lost a subscriber")
     }
-    
+
     func didChangePairingState(from: PairingState, to: PairingState) {
         if to == .notPaired {
             printPairingInstructions()
         }
     }
-    
+
     func printPairingInstructions() {
         if device.isPaired {
             print()
@@ -91,7 +101,7 @@ class MyDeviceDelegate: DeviceDelegate {
 
 var delegate = MyDeviceDelegate()
 device.delegate = delegate
-let server = try Server(device: device, listenPort: 8000)
+let server = try Server(device: device)
 
 // Stop server on interrupt.
 var keepRunning = true

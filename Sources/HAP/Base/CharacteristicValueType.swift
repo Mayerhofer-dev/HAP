@@ -15,11 +15,11 @@ extension Optional: CharacteristicValueType, JSONValueTypeConvertible where Wrap
     }
 
     public static var format: CharacteristicFormat {
-        return Wrapped.format
+        Wrapped.format
     }
 
     public var jsonValueType: JSONValueType {
-        return map { $0.jsonValueType } ?? NSNull()
+        map { $0.jsonValueType } ?? NSNull()
     }
 }
 
@@ -33,7 +33,7 @@ extension Bool: CharacteristicValueType {
     }
     static public let format = CharacteristicFormat.bool
     public var jsonValueType: JSONValueType {
-        return self
+        self
     }
 }
 
@@ -46,26 +46,30 @@ extension String: CharacteristicValueType {
     }
     static public let format = CharacteristicFormat.string
     public var jsonValueType: JSONValueType {
-        return self
+        self
     }
 }
 
 extension Int: CharacteristicValueType {
     public init?(value: Any) {
         if let value = value as? Int {
-             self = value
+            self = value
         } else if let value = value as? Bool {
             self = value ? 1 : 0
+        } else if let value = value as? Float {
+            self = Int(value)
+        } else if let value = value as? Double {
+            self = Int(value)
         } else {
             return nil
         }
     }
     public var asInt: Int {
-        return self
+        self
     }
     static public let format = CharacteristicFormat.int
     public var jsonValueType: JSONValueType {
-        return self
+        self
     }
 }
 
@@ -83,11 +87,11 @@ extension UInt8: CharacteristicValueType {
         }
     }
     public var asInt: Int {
-        return Int(exactly: self) ?? 0
+        Int(exactly: self) ?? 0
     }
     static public let format = CharacteristicFormat.uint8
     public var jsonValueType: JSONValueType {
-        return self
+        self
     }
 }
 
@@ -105,11 +109,11 @@ extension UInt16: CharacteristicValueType {
         }
     }
     public var asInt: Int {
-        return Int(exactly: self) ?? 0
+        Int(exactly: self) ?? 0
     }
     static public let format = CharacteristicFormat.uint16
     public var jsonValueType: JSONValueType {
-        return self
+        self
     }
 }
 
@@ -127,11 +131,11 @@ extension UInt32: CharacteristicValueType {
         }
     }
     public var asInt: Int {
-        return Int(exactly: self) ?? 0
+        Int(exactly: self) ?? 0
     }
     static public let format = CharacteristicFormat.uint32
     public var jsonValueType: JSONValueType {
-        return self
+        self
     }
 }
 
@@ -146,7 +150,7 @@ extension Float: CharacteristicValueType {
     }
     static public let format = CharacteristicFormat.float
     public var jsonValueType: JSONValueType {
-        return self
+        self
     }
 }
 
@@ -161,7 +165,7 @@ extension Double: CharacteristicValueType {
     }
     static public let format = CharacteristicFormat.float
     public var jsonValueType: JSONValueType {
-        return self
+        self
     }
 }
 
@@ -183,9 +187,9 @@ extension RawRepresentable where RawValue: CharacteristicValueType & JSONValueTy
         self.init(rawValue: rawValue)
     }
     public static var format: CharacteristicFormat {
-        return RawValue.format
+        RawValue.format
     }
     public var jsonValueType: JSONValueType {
-        return rawValue
+        rawValue
     }
 }
